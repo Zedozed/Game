@@ -1,5 +1,6 @@
 #Snake Game with OpenGL
 #Overview
+
 This is a classic Snake game implemented using OpenGL and C++ on Windows. The snake grows longer when it eats food, accompanied by a sound effect. The game ends with a "Game Over" screen and sound when the snake hits the window edges or itself. The score increases by 5 points per food consumed and is displayed on the screen.
 #Features
 
