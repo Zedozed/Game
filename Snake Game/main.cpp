@@ -1,0 +1,193 @@
+#include <GL/glut.h>
+#include <windows.h>
+#include <mmsystem.h>
+#include <vector>
+#include <string>
+#include <ctime>
+#include <cmath>
+#include <iostream>
+
+#pragma comment(lib, "winmm.lib")
+
+struct Point {
+    GLfloat x, y;
+};
+
+std::vector<Point> body;
+int maxLength = 1;
+GLfloat px = 120, py = 120;
+GLfloat speed = 10;
+int direction = 0;
+int score = 0;
+GLfloat fx = 320, fy = 240;
+bool isGameOver = false;
+
+void randomNum() {
+
+    GLfloat newFx, newFy;
+    do {
+        newFx = (rand() % 64) * 10;
+        newFy = (rand() % 48) * 10;
+    } while (fabs(newFx - px) < 20.0f && fabs(newFy - py) < 20.0f);
+    fx = newFx;
+    fy = newFy;
+    std::cout << "New food position: (" << fx << ", " << fy << ")\n";
+}
+
+void drawString(void* font, const std::string& text, int x, int y) {
+    glRasterPos2i(x, y);
+    for (char c : text) {
+        glutBitmapCharacter(font, c);
+    }
+}
+
+bool isColliding(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2, float radius = 5.0f) {
+    return fabs(x1 - x2) < radius && fabs(y1 - y2) < radius;
+}
+
+void myInit() {
+    glClearColor(1, 1, 1, 0);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, 640, 480, 0);
+    srand(static_cast<unsigned>(time(NULL)));
+    body.clear();
+    body.push_back({px, py});
+    randomNum();
+    isGameOver = false;
+}
+
+void myDisplay() {
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    if (!isGameOver) {
+        // Snake body
+        glColor3f(1, 0, 0);
+        glPointSize(10.0);
+        glBegin(GL_POINTS);
+        for (const auto& part : body)
+            glVertex2f(part.x, part.y);
+        glEnd();
+
+        // Food
+        glColor3f(0, 1, 0);
+        glBegin(GL_POINTS);
+        glVertex2f(fx, fy);
+        glEnd();
+
+        // Score
+        glColor3f(0, 0, 1);
+        drawString(GLUT_BITMAP_TIMES_ROMAN_24, "Score:", 520, 30);
+        drawString(GLUT_BITMAP_TIMES_ROMAN_24, std::to_string(score), 580, 30);
+    } else {
+        // Game Over screen
+        glColor3f(1, 0, 0);
+        drawString(GLUT_BITMAP_TIMES_ROMAN_24, "GAME OVER!", 260, 200);
+        drawString(GLUT_BITMAP_TIMES_ROMAN_24, "Final Score: " + std::to_string(score), 240, 240);
+        drawString(GLUT_BITMAP_TIMES_ROMAN_24, "Press R to Restart", 230, 280);
+    }
+
+    glutSwapBuffers();
+}
+
+void mySpecial(int key, int x, int y) {
+    if (isGameOver) return;
+
+    switch (key) {
+        case GLUT_KEY_LEFT:
+            if (direction != 2) direction = 1;
+            break;
+        case GLUT_KEY_RIGHT:
+            if (direction != 1) direction = 2;
+            break;
+        case GLUT_KEY_UP:
+            if (direction != 3) direction = 0;
+            break;
+        case GLUT_KEY_DOWN:
+            if (direction != 0) direction = 3;
+            break;
+    }
+}
+
+void myKeyboard(unsigned char key, int x, int y) {
+    if (isGameOver && (key == 'r' || key == 'R')) {
+        px = 50; py = 50;
+        direction = 2;
+        score = 0;
+        maxLength = 1;
+        body.clear();
+        body.push_back({px, py});
+        isGameOver = false;
+        randomNum();
+    }
+}
+
+void myIdle() {
+    if (isGameOver) {
+        glutPostRedisplay();
+        return;
+    }
+
+    // Move snake head
+    switch (direction) {
+        case 0: py -= speed; break;
+        case 1: px -= speed; break;
+        case 2: px += speed; break;
+        case 3: py += speed; break;
+    }
+
+    // Check for edge collision
+    if (px < 0 || px > 640 || py < 0 || py > 480) {
+        isGameOver = true;
+        PlaySound("C:\\New folder\\animatedPoint\\pickup.wav", NULL, SND_FILENAME | SND_ASYNC);
+        glutPostRedisplay();
+        return;
+    }
+
+    // Insert new head
+    body.insert(body.begin(), {px, py});
+    if ((int)body.size() > maxLength)
+        body.pop_back();
+
+    // Check food collision with larger radius
+    if (isColliding(px, py, fx, fy, 15.0f)) {
+        score += 5;
+        maxLength += 2;
+        PlaySound("C:\\New folder\\animatedPoint\\pickup1.wav", NULL, SND_FILENAME | SND_ASYNC);
+        randomNum();
+    }
+
+    // Check self-collision
+    for (size_t i = 1; i < body.size(); ++i) {
+        if (isColliding(px, py, body[i].x, body[i].y)) {
+            isGameOver = true;
+            PlaySound("C:\\New folder\\animatedPoint\\pickup.wav", NULL, SND_FILENAME | SND_ASYNC);
+            glutPostRedisplay();
+            break;
+        }
+    }
+
+    glutPostRedisplay();
+}
+
+void timer(int) {
+    if (!isGameOver) {
+        myIdle();
+    }
+    glutTimerFunc(100, timer, 0);
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitWindowSize(640, 480);
+    glutInitWindowPosition(100, 100);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutCreateWindow("Enhanced Snake Game with Sound and Game Over");
+    myInit();
+    glutDisplayFunc(myDisplay);
+    glutSpecialFunc(mySpecial);
+    glutKeyboardFunc(myKeyboard);
+    glutTimerFunc(0, timer, 0);
+    glutMainLoop();
+    return 0;
+}
